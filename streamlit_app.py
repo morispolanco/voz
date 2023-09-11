@@ -1,5 +1,6 @@
 import streamlit as st
-import sounddevice as sd
+import pyaudio
+import wave
 import speech_recognition as sr
 
 def transcribir_audio(audio):
@@ -28,13 +29,31 @@ def main():
         fs = 44100  # Frecuencia de muestreo
         duracion = 5  # Duración de la grabación en segundos
         
-        # Grabar audio
-        audio = sd.rec(int(duracion * fs), samplerate=fs, channels=1)
-        sd.wait()  # Esperar a que termine la grabación
+        # Inicializar PyAudio
+        p = pyaudio.PyAudio()
+        
+        # Abrir el stream de audio
+        stream = p.open(format=pyaudio.paInt16, channels=1, rate=fs, input=True, frames_per_buffer=1024)
+        
+        # Leer los datos del stream de audio
+        frames = []
+        for i in range(0, int(fs / 1024 * duracion)):
+            data = stream.read(1024)
+            frames.append(data)
+        
+        # Detener la grabación
+        stream.stop_stream()
+        stream.close()
+        p.terminate()
         
         # Guardar el audio en un archivo WAV
         archivo_wav = "audio.wav"
-        sd.write(archivo_wav, audio, fs)
+        wf = wave.open(archivo_wav, 'wb')
+        wf.setnchannels(1)
+        wf.setsampwidth(p.get_sample_size(pyaudio.paInt16))
+        wf.setframerate(fs)
+        wf.writeframes(b''.join(frames))
+        wf.close()
         
         # Transcribir el audio
         texto_transcrito = transcribir_audio(archivo_wav)
